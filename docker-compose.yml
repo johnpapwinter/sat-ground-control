@@ -1,0 +1,16 @@
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg18
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=space
+      - POSTGRES_DB=space
+
+  redis:
+    image: redis:alpine3.22
+    ports:
+      - "6379:6379"
+
+

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/space/xtce" name="SatSim">
+
+    <TelemetryParameterTypeSet>
+        <FloatParameterType name="float_32_t">
+            <UnitSet/>
+            <FloatDataEncoding sizeInBits="32" encoding="IEEE754_1985">
+                <ByteOrderList>
+                    <ByteOrder byteImportance="mostSignificantByteFirst"/>
+                </ByteOrderList>
+            </FloatDataEncoding>
+        </FloatParameterType>
+    </TelemetryParameterTypeSet>
+
+    <TelemetryParameterSet>
+        <TelemetryParameter name="Battery_Voltage" parameterTypeRef="float_32_t">
+            <ShortDescription>Main Bus Voltage</ShortDescription>
+        </TelemetryParameter>
+
+        <TelemetryParameter name="Solar_Temp" parameterTypeRef="float_32_t">
+            <ShortDescription>Solar Panel Temperature</ShortDescription>
+        </TelemetryParameter>
+    </TelemetryParameterSet>
+
+    <ContainerSet>
+        <SequenceContainer name="Power_Packet">
+            <EntryList>
+                <ParameterRefEntry parameterRef="Battery_Voltage"/>
+                <ParameterRefEntry parameterRef="Solar_Temp"/>
+            </EntryList>
+
+            <BaseContainer containerRef="CCSDS_SpacePacket">
+                <RestrictionCriteria>
+                    <ComparisonList>
+                        <Comparison parameterRef="APID" value="100"/>
+                    </ComparisonList>
+                </RestrictionCriteria>
+            </BaseContainer>
+        </SequenceContainer>
+    </ContainerSet>
+
+
+    <CommandMetaData>
+        <MetaCommandSet>
+
+            <MetaCommand name="REBOOT">
+                <ArgumentList/>
+
+                <CommandContainer name="Reboot_Packet">
+                    <EntryList>
+                        <FixedValueEntry sizeInBits="32">
+                            <BinaryHex>00000001</BinaryHex>
+                        </FixedValueEntry>
+                    </EntryList>
+
+                    <BaseContainer containerRef="CCSDS_CommandPacket">
+                        <RestrictionCriteria>
+                            <ComparisonList>
+                                <Comparison parameterRef="APID" value="200"/>
+                            </ComparisonList>
+                        </RestrictionCriteria>
+                    </BaseContainer>
+                </CommandContainer>
+            </MetaCommand>
+
+            <MetaCommand name="SET_FREQ">
+                <ArgumentList>
+                    <Argument name="New_Frequency" argumentTypeRef="float_32_t"/>
+                </ArgumentList>
+
+                <CommandContainer name="Set_Freq_Packet">
+                    <EntryList>
+                        <FixedValueEntry sizeInBits="32">
+                            <BinaryHex>00000002</BinaryHex>
+                        </FixedValueEntry>
+                        <ArgumentRefEntry argumentRef="New_Frequency"/>
+                    </EntryList>
+
+                    <BaseContainer containerRef="CCSDS_CommandPacket">
+                        <RestrictionCriteria>
+                            <ComparisonList>
+                                <Comparison parameterRef="APID" value="200"/>
+                            </ComparisonList>
+                        </RestrictionCriteria>
+                    </BaseContainer>
+                </CommandContainer>
+
+            </MetaCommand>
+
+        </MetaCommandSet>
+    </CommandMetaData>
+
+</SpaceSystem>
+
+

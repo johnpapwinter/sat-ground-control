@@ -1,0 +1,12 @@
+[project]
+name = "sat-ground-control"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "fastapi>=0.128.1",
+    "psycopg2>=2.9.11",
+    "redis>=7.1.0",
+    "uvicorn>=0.40.0",
+]
