@@ -4,7 +4,7 @@ import threading
 import time
 import random
 
-from ccsds_parser import create_ccsds_header, parse_ccsds_header
+from common.ccsds_parser import create_ccsds_header, parse_ccsds_header
 
 UDP_IP = "127.0.0.1"
 UDP_PORT_BROADCAST = 5005

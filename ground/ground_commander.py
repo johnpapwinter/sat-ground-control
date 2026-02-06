@@ -1,13 +1,13 @@
 import socket
 import struct
 
-from ccsds_parser import create_ccsds_header
-from xtce_parser import XtceParser
+from common.ccsds_parser import create_ccsds_header
+from common.xtce_parser import XtceParser
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5006
 
-parser = XtceParser("telemetry_def.xml")
+parser = XtceParser("../common/telemetry_def.xml")
 
 
 def send_command(opcode: int, frequency: float) -> None:

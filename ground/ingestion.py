@@ -1,12 +1,11 @@
 import socket
-import struct
 from datetime import datetime
 
 import psycopg2
 from redis import Redis
 
-from ccsds_parser import parse_ccsds_header
-from xtce_parser import XtceParser
+from common.ccsds_parser import parse_ccsds_header
+from common.xtce_parser import XtceParser
 
 
 conn = psycopg2.connect("postgres://postgres:space@localhost:5432/space")
@@ -30,7 +29,7 @@ HEADER_SIZE = 6
 print(f"📡 Ground Station listening on {UDP_PORT}...")
 
 
-parser = XtceParser("telemetry_def.xml")
+parser = XtceParser("../common/telemetry_def.xml")
 
 try:
     while True:
