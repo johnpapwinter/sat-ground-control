@@ -8,13 +8,15 @@ from ground.telemetry_service import TelemetryService
 from ground.timescale_client import get_timescale_db
 
 
-def inject_telemetry_repository(timescale_db: AsyncSession = Depends(get_timescale_db),
-                                redis_db: Redis = Depends(get_redis)
+def inject_telemetry_repository(
+        timescale_db: AsyncSession = Depends(get_timescale_db),
+        redis_db: Redis = Depends(get_redis)
 ) -> TelemetryRepository:
     return TelemetryRepository(timescale_db, redis_db)
 
 
-def inject_telemetry_service(repository: TelemetryRepository = Depends(inject_telemetry_repository)
+def inject_telemetry_service(
+        repository: TelemetryRepository = Depends(inject_telemetry_repository)
 ) -> TelemetryService:
     return TelemetryService(repository)
 
