@@ -1,5 +1,6 @@
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 
 import psycopg2
 from redis import Redis
@@ -29,7 +30,9 @@ HEADER_SIZE = 6
 print(f"📡 Ground Station listening on {UDP_PORT}...")
 
 
-parser = XtceParser("../common/telemetry_def.xml")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+TELEMETRY_DEF = PROJECT_ROOT / "common" / "telemetry_def.xml"
+parser = XtceParser(str(TELEMETRY_DEF))
 
 try:
     while True:
@@ -65,7 +68,7 @@ try:
             # voltage, temperature = struct.unpack("!ff", payload_bytes)
             print(f"   └── 🔋 Voltage: {voltage:.2f}V | 🌡️ Temp: {temperature:.2f}C")
 
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             pipe = r.pipeline()
             pipe.set("sat:1:voltage", voltage)
             pipe.set("sat:1:temperature", temperature)
