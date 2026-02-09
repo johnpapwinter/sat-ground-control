@@ -7,11 +7,13 @@ from redis import Redis
 
 from common.ccsds_parser import parse_ccsds_header
 from common.xtce_parser import XtceParser
-
+from ground.sequence_detector import SequenceGapDetector
 
 conn = psycopg2.connect("postgres://postgres:space@localhost:5432/space")
 conn.autocommit = True
 r = Redis(host="localhost", port=6379, db=0)
+
+detector = SequenceGapDetector(r, conn)
 
 
 UDP_IP = "127.0.0.1"
@@ -49,6 +51,12 @@ try:
         header = parse_ccsds_header(header_bytes=header_bytes)
         apid = header.get("apid")
         seq_count = header.get("seq_count")
+
+        gap = detector.check(apid, seq_count)
+        if gap:
+            print(f"   └── ⚠️ GAP DETECTED: lost {gap['gap_size']} packets (expected {gap['expected_seq']}, "
+                  f"got {gap['received_seq']})")
+
         payload_length = header.get("length")
         print(f"📦 Pkt Rx | APID: {apid} | Seq: {seq_count} | PayLoad Len: {payload_length}")
 
