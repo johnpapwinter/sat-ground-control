@@ -6,7 +6,7 @@ from pathlib import Path
 
 from common.ccsds_parser import parse_ccsds_header
 from common.xtce_parser import XtceParser
-from ground.ingestion.db_clients import get_db_session, get_redis_client
+from ground.ingestion.db_clients import db_session_local, client as redis_client
 from ground.ingestion.ingestion_repository import IngestionRepository
 from ground.ingestion.ingestion_settings import IngestionSettings, get_ingestion_settings
 from ground.models import Telemetry
@@ -84,7 +84,7 @@ class IngestionService:
         self.repository.save_current_telemetry(telemetry=telemetry)
 
     def run(self) -> None:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((self.settings.udp_ip, self.settings.udp_port))
 
         try:
@@ -100,7 +100,7 @@ class IngestionService:
 def main():
     settings = get_ingestion_settings()
 
-    repository = IngestionRepository(get_db_session(), get_redis_client())
+    repository = IngestionRepository(db_session_local, redis_client)
     gap_detector = SequenceGapDetector(repository)
     xtce_parser = XtceParser(str(TELEMETRY_DEF))
     service = IngestionService(repository, gap_detector, xtce_parser, settings)

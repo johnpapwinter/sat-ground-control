@@ -27,5 +27,12 @@ class IngestionRepository:
         self.db.commit()
 
     def publish_alert(self, packet_gap: PacketGap) -> None:
-        self.redis.publish("alerts:packet_gap", json.dumps(packet_gap))
+        self.redis.publish("alerts:packet_gap", json.dumps({
+            "timestamp": packet_gap.timestamp.isoformat(),
+            "satellite_id": packet_gap.satellite_id,
+            "apid": packet_gap.apid,
+            "expected_seq": packet_gap.expected_seq,
+            "received_seq": packet_gap.received_seq,
+            "gap_size": packet_gap.gap_size,
+        }))
 
