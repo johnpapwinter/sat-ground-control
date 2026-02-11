@@ -7,7 +7,7 @@ from redis import Redis
 
 from common.ccsds_parser import parse_ccsds_header
 from common.xtce_parser import XtceParser
-from ground.sequence_detector import SequenceGapDetector
+from ground.ingestion.sequence_detector import SequenceGapDetector
 
 conn = psycopg2.connect("postgres://postgres:space@localhost:5432/space")
 conn.autocommit = True
