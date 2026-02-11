@@ -2,10 +2,10 @@ from fastapi.params import Depends
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ground.redis_client import get_redis
-from ground.telemetry_repository import TelemetryRepository
-from ground.telemetry_service import TelemetryService
-from ground.timescale_client import get_timescale_db
+from ground.api.redis_client import get_redis
+from ground.api.telemetry_repository import TelemetryRepository
+from ground.api.telemetry_service import TelemetryService
+from ground.api.timescale_client import get_timescale_db
 
 
 def inject_telemetry_repository(

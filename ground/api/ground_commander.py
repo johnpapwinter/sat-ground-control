@@ -7,7 +7,7 @@ from common.xtce_parser import XtceParser
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5006
 
-parser = XtceParser("../common/telemetry_def.xml")
+parser = XtceParser("../../common/telemetry_def.xml")
 
 
 def send_command(opcode: int, frequency: float) -> None:

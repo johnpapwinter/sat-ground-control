@@ -3,9 +3,9 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.params import Depends
 
-from ground.dependencies import inject_telemetry_service
-from ground.schemas import CommandPoint, TelemetryPoint, LastStatus
-from ground.telemetry_service import TelemetryService
+from ground.api.dependencies import inject_telemetry_service
+from ground.api.schemas import CommandPoint, TelemetryPoint, LastStatus
+from ground.api.telemetry_service import TelemetryService
 from ground_commander import send_command
 
 app = FastAPI()

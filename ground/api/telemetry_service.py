@@ -1,8 +1,8 @@
 from typing import List
 
 from ground.models import Telemetry
-from ground.schemas import LastStatus, TelemetryPoint
-from ground.telemetry_repository import TelemetryRepository
+from ground.api.schemas import LastStatus, TelemetryPoint
+from ground.api.telemetry_repository import TelemetryRepository
 
 
 class TelemetryService:
