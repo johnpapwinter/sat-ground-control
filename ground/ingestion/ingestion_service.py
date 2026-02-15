@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from common.ccsds_parser import parse_ccsds_header
+from common.clcw import CLCW_SIZE, parse_clcw
 from common.xtce_parser import XtceParser
 from ground.ingestion.db_clients import db_session_local, client as redis_client
 from ground.ingestion.ingestion_repository import IngestionRepository
@@ -38,7 +39,14 @@ class IngestionService:
             log.error(f"⚠️ Corrupt packet received from {addr}, length too short {len(raw_data)}...")
             return None
 
-        header_bytes = raw_data[:self.settings.header_size]
+        clcw_bytes = raw_data[-CLCW_SIZE:]
+        space_packet_data = raw_data[:-CLCW_SIZE]
+
+        clcw = parse_clcw(clcw_bytes=clcw_bytes)
+        log.info(f"📡 CLCW | report_value={clcw['report_value']}")
+        self.repository.save_clcw(clcw=clcw)
+
+        header_bytes = space_packet_data[:self.settings.header_size]
 
         header = parse_ccsds_header(header_bytes=header_bytes)
         apid = header.get("apid")
@@ -52,7 +60,7 @@ class IngestionService:
         payload_length = header.get("length")
         log.info(f"📦 Pkt Rx | APID: {apid} | Seq: {seq_count} | PayLoad Len: {payload_length}")
 
-        payload_bytes = raw_data[self.settings.header_size:self.settings.header_size + payload_length]
+        payload_bytes = space_packet_data[self.settings.header_size:self.settings.header_size + payload_length]
 
         if apid == self.settings.telemetry_id:
             decoded_data = self.xtce_parser.decode(apid=apid, payload_bytes=payload_bytes)

@@ -36,3 +36,7 @@ class IngestionRepository:
             "gap_size": packet_gap.gap_size,
         }))
 
+    def save_clcw(self, clcw: dict) -> None:
+        self.redis.publish("clcw:update", json.dumps(clcw))
+
+

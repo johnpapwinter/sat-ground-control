@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class IngestionSettings(BaseSettings):
     udp_ip: str = "127.0.0.1"
     udp_port: int = 5005
+    udp_cmd_port: int = 5006
 
     satellite_id: int = 1
     metric_voltage: int = 1
@@ -14,6 +15,10 @@ class IngestionSettings(BaseSettings):
 
     telemetry_id: int = 100
     command_id: int = 200
+
+    fop_timeout_seconds: int = 5
+    fop_max_retries: int = 3
+    fop_queue_key: str = "cmd_queue"
 
     postgres_host: str = 'localhost'
     postgres_port: int = 5432

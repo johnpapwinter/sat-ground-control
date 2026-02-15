@@ -5,6 +5,7 @@ import time
 import random
 
 from common.ccsds_parser import create_ccsds_header, parse_ccsds_header
+from common.clcw import pack_clcw
 
 UDP_IP = "127.0.0.1"
 UDP_PORT_BROADCAST = 5005
@@ -19,6 +20,8 @@ LENGTH = 8
 
 RX_HEADER_FORMAT = "!HHI"
 RX_HEADER_SIZE = 6
+
+EXPECTED_CMD_SEQ = 0
 
 
 print(f"🛰️ Satellite {SAT_ID} booting up...")
@@ -46,7 +49,8 @@ def telemetry_tx():
             is_command=False,
         )
 
-        packet = header + payload
+        clcw = pack_clcw(report_value=EXPECTED_CMD_SEQ)
+        packet = header + payload + clcw
 
         # send to ground station
         sock.sendto(packet, (UDP_IP, UDP_PORT_BROADCAST))
@@ -59,6 +63,7 @@ def telemetry_tx():
 def command_rx():
     global SEQ_COUNT
     global FREQUENCY
+    global EXPECTED_CMD_SEQ
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((UDP_IP, UDP_PORT_RECEIVER))
 
@@ -85,6 +90,8 @@ def command_rx():
                     FREQUENCY = new_freq
                 else:
                     print(f"   └── ❓ Unknown OpCode: {opcode}")
+
+            EXPECTED_CMD_SEQ = (EXPECTED_CMD_SEQ + 1) % 256
         except Exception as e:
             print(f"Rx Error: {e}")
 
