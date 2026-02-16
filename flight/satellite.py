@@ -1,3 +1,4 @@
+import logging
 import socket
 import struct
 import threading
@@ -6,6 +7,10 @@ import random
 
 from common.ccsds_parser import create_ccsds_header, parse_ccsds_header
 from common.clcw import pack_clcw
+from flight.farm import Farm
+
+
+log = logging.getLogger(__name__)
 
 UDP_IP = "127.0.0.1"
 UDP_PORT_BROADCAST = 5005
@@ -16,12 +21,13 @@ APID_TX = 100
 APID_RX = 200
 SEQ_COUNT = 1
 FREQUENCY = 1
-LENGTH = 8
 
-RX_HEADER_FORMAT = "!HHI"
 RX_HEADER_SIZE = 6
 
-EXPECTED_CMD_SEQ = 0
+# special opcode reserved for unlock directive
+OPCODE_UNLOCK = 0xFF
+
+farm = Farm()
 
 
 print(f"🛰️ Satellite {SAT_ID} booting up...")
@@ -49,13 +55,18 @@ def telemetry_tx():
             is_command=False,
         )
 
-        clcw = pack_clcw(report_value=EXPECTED_CMD_SEQ)
+        clcw_fields = farm.get_clcw_fields()
+        clcw = pack_clcw(**clcw_fields)
         packet = header + payload + clcw
 
         # send to ground station
         sock.sendto(packet, (UDP_IP, UDP_PORT_BROADCAST))
 
-        print(f"Tx: {len(packet)} bytes | Voltage: {voltage:.2f}V | Temp: {temperature:.2f}C, SEQ: {SEQ_COUNT}")
+        log.info(
+            f"Tx: {len(packet)}B | V={voltage:.2f}V | T={temperature:.2f}C | SEQ={SEQ_COUNT} | "
+            f"CLCW[N(R)={clcw_fields['report_value']} ret={clcw_fields['retransmit']} "
+            f"wait={clcw_fields['wait']} lock={clcw_fields['lockout']}]"
+        )
         SEQ_COUNT += 1
         time.sleep(FREQUENCY)
 
@@ -63,11 +74,10 @@ def telemetry_tx():
 def command_rx():
     global SEQ_COUNT
     global FREQUENCY
-    global EXPECTED_CMD_SEQ
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((UDP_IP, UDP_PORT_RECEIVER))
 
-    print(f"🛰️ Listening for commands on port {UDP_PORT_RECEIVER}...")
+    log.info(f"🛰️ Listening for commands on port {UDP_PORT_RECEIVER}...")
     while True:
         try:
             raw_data, addr = sock.recvfrom(1024)
@@ -77,39 +87,58 @@ def command_rx():
 
             header = parse_ccsds_header(header_bytes=header_bytes)
             apid = header.get("apid")
-            # apid, seq, length = struct.unpack(RX_HEADER_FORMAT, header_bytes)
+            cmd_seq = header.get("seq_count")
 
-            if apid == APID_RX:
-                opcode = struct.unpack("!I", payload_bytes[:4])[0]
-                if opcode == 1:
-                    print("   └── ⚠️  COMMAND RECEIVED: REBOOT SYSTEM")
-                    SEQ_COUNT = 1
-                elif opcode == 2:
-                    new_freq = struct.unpack("!f", payload_bytes[4:8])[0]
-                    print(f"   └── ⚠️  COMMAND RECEIVED: SET FREQ to {new_freq}s")
-                    FREQUENCY = new_freq
-                else:
-                    print(f"   └── ❓ Unknown OpCode: {opcode}")
+            if apid != APID_RX:
+                log.warning(f"Ignoring frame with unexpected APID={apid}")
+                continue
 
-            EXPECTED_CMD_SEQ = (EXPECTED_CMD_SEQ + 1) % 256
+            opcode = struct.unpack("!I", payload_bytes[:4])[0]
+
+            if opcode == OPCODE_UNLOCK:
+                log.info("⚠️  UNLOCK directive received")
+                farm.unlock()
+                continue
+
+            accepted = farm.accept_frame(cmd_seq)
+            if not accepted:
+                log.warning(f"Command seq={cmd_seq} rejected by FARM")
+                continue
+
+            if opcode == 1:
+                log.info("⚠️  COMMAND EXECUTED: REBOOT SYSTEM")
+                SEQ_COUNT = 1
+            elif opcode == 2:
+                new_freq = struct.unpack("!f", payload_bytes[4:8])[0]
+                log.info(f"⚠️  COMMAND EXECUTED: SET FREQ to {new_freq}s")
+                FREQUENCY = new_freq
+            else:
+                log.warning(f"Unknown OpCode: {opcode}")
+
         except Exception as e:
-            print(f"Rx Error: {e}")
+            log.error(f"Rx Error: {e}")
 
 
 
 
-try:
+def main():
+    log.info(f"🛰️ Satellite {SAT_ID} booting up...")
+
     tx_thread = threading.Thread(target=telemetry_tx, daemon=True)
     rx_thread = threading.Thread(target=command_rx, daemon=True)
 
     tx_thread.start()
     rx_thread.start()
 
-    while True:
-        time.sleep(FREQUENCY)
-except KeyboardInterrupt:
-    print("🛑 Satellite shutting down...")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        log.info("🛑 Satellite shutting down...")
 
+
+if __name__ == "__main__":
+    main()
 
 
 

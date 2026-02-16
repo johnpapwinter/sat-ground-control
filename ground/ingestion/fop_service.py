@@ -12,6 +12,9 @@ from ground.ingestion.ingestion_settings import IngestionSettings, get_ingestion
 
 log = logging.getLogger(__name__)
 
+SEQUENCE_MODULO = 256
+OPCODE_UNLOCK = 0xFF
+
 
 class FOPService:
     def __init__(self, redis: Redis, settings: IngestionSettings):
@@ -22,6 +25,10 @@ class FOPService:
         self.last_ack = 0
         self.waiting_for_ack = False
         self.current_payload = b""
+
+        self.lockout = False
+        self.wait = False
+        self.retransmit = False
 
         self.clcw_event = threading.Event()
         self.settings = settings
@@ -35,6 +42,14 @@ class FOPService:
                 continue
             clcw = json.loads(message["data"])
             self.last_ack = clcw["report_value"]
+            self.lockout = clcw.get("lockout", False)
+            self.wait = clcw.get("wait", False)
+            self.retransmit = clcw.get("retransmit", False)
+
+            log.info(
+                f"📡 CLCW received: N(R)={self.last_ack} "
+                f"lockout={self.lockout} wait={self.wait} retransmit={self.retransmit}"
+            )
             self.clcw_event.set()
 
     def send_frame(self, payload: bytes) -> None:
@@ -48,12 +63,39 @@ class FOPService:
         self.sock.sendto(packet, (self.settings.udp_ip, self.settings.udp_cmd_port))
         log.info(f"📤 Sent command seq={self.send_seq} ({len(packet)} bytes)")
 
+    def send_unlock(self) -> None:
+        payload = struct.pack("!I", OPCODE_UNLOCK)
+        header = create_ccsds_header(
+            apid=self.settings.command_id,
+            seq_count=0,
+            payload_length=len(payload),
+            is_command=True
+        )
+        packet = header + payload
+        self.sock.sendto(packet, (self.settings.udp_ip, self.settings.udp_cmd_port))
+        log.info("🔓 Sent UNLOCK directive to satellite")
+
+    def handle_lockout(self) -> bool:
+        log.warning("🔒 Satellite is in LOCKOUT. Sending unlock directive...")
+        self.send_unlock()
+
+        self.clcw_event.clear()
+        got_clcw = self.clcw_event.wait(timeout=self.settings.fop_timeout_seconds)
+
+        if got_clcw and not self.lockout:
+            self.send_seq = self.last_ack
+            log.info(f"🔓 Lockout cleared. Re-synced V(S) to {self.send_seq}")
+            return True
+
+        log.error("🔒 Lockout persists after unlock attempt")
+        return False
+
     def wait_for_ack(self) -> bool:
         for attempt in range(self.settings.fop_max_retries):
             self.clcw_event.clear()
             got_clcw = self.clcw_event.wait(timeout=self.settings.fop_timeout_seconds)
 
-            if got_clcw and self.last_ack > self.send_seq:
+            if got_clcw and self._is_acked(self.last_ack):
                 return True
 
             if not got_clcw:
@@ -63,7 +105,40 @@ class FOPService:
                 )
                 self.send_frame(self.current_payload)
 
+            if self.lockout:
+                cleared = self.handle_lockout()
+                if cleared:
+                    self.send_frame(self.current_payload)
+                    continue
+                else:
+                    return False
+
+            if self.wait:
+                log.info("⏸️ Satellite signalling WAIT — pausing until buffer clears...")
+                while self.wait:
+                    self.clcw_event.clear()
+                    self.clcw_event.wait(timeout=self.settings.fop_timeout_seconds)
+                log.info("▶️ Wait cleared, retransmitting")
+                self.send_frame(self.current_payload)
+                continue
+
+            if self.retransmit:
+                log.warning(
+                    f"🔄 Satellite requesting retransmit from N(R)={self.last_ack} "
+                    f"(we sent seq={self.send_seq})"
+                )
+                self.send_seq = self.last_ack
+                self.send_frame(self.current_payload)
+                continue
+
+            if self._is_acked(self.last_ack):
+                return True
+            
         return False
+
+    def _is_acked(self, report_value: int) -> bool:
+        diff = (report_value - self.send_seq) % SEQUENCE_MODULO
+        return 1 <= diff <= 127
 
     def run(self):
         log.info("🚀 FOP Service started, waiting for commands...")

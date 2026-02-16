@@ -4,10 +4,26 @@ import struct
 CLCW_SIZE = 4
 
 
-def pack_clcw(report_value: int) -> bytes:
+def pack_clcw(
+        report_value: int,
+        retransmit: bool = False,
+        wait: bool = False,
+        lockout: bool = False,
+) -> bytes:
     word = 0
-    word |= (1 & 0x03) << 24
-    word |= (report_value & 0xFF) << 1
+
+    word |= (0b01) << 22
+
+    if lockout:
+        word |= 1 << 10
+
+    if wait:
+        word |= 1 << 9
+
+    if retransmit:
+        word |= 1 << 8
+
+    word |= report_value & 0xFF
 
     return struct.pack("!I", word)
 
