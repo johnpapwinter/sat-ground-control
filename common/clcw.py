@@ -32,7 +32,10 @@ def parse_clcw(clcw_bytes: bytes) -> dict:
     (word,) = struct.unpack("!I", clcw_bytes)
 
     return {
-        "report_value": (word >> 1) & 0xFF
+        "report_value": word & 0xFF,
+        "retransmit": bool((word >> 8) & 1),
+        "wait": bool((word >> 9) & 1),
+        "lockout": bool((word >> 10) & 1),
     }
 
 
