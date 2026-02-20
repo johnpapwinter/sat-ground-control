@@ -35,6 +35,10 @@ class IngestionService:
         self.settings = settings
 
     def process_packet(self, raw_data: bytes, addr) -> None:
+        visible = self.repository.redis.get(f"sat:{self.settings.satellite_id}:visible")
+        if visible != b"True":
+            return None
+
         if len(raw_data) < self.settings.header_size:
             log.error(f"⚠️ Corrupt packet received from {addr}, length too short {len(raw_data)}...")
             return None

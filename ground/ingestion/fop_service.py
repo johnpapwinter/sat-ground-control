@@ -3,6 +3,7 @@ import logging
 import socket
 import struct
 import threading
+import time
 
 from redis import Redis
 
@@ -11,6 +12,7 @@ from db_clients import client as redis_client, db_session_local
 from ground.domain.enums import CommandState
 from ground.ingestion.ingestion_repository import IngestionRepository
 from ground.ingestion.ingestion_settings import IngestionSettings, get_ingestion_settings
+from ground.ingestion.pass_service import PassService
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +149,10 @@ class FOPService:
         log.info("🚀 FOP Service started, waiting for commands...")
 
         while True:
+            if not self.is_satellite_visible():
+                time.sleep(1)
+                continue
+
             result = self.redis.brpop(self.settings.fop_queue_keys, timeout=1)
             if result is None:
                 continue
@@ -179,10 +185,18 @@ class FOPService:
         else:
             return struct.pack("!I", opcode)
 
+    def is_satellite_visible(self) -> bool:
+        value = self.redis.get(f"sat:{self.settings.satellite_id}:visible")
+        return value == b"True"
+
 
 def main():
     settings = get_ingestion_settings()
     repository = IngestionRepository(db_session_local, redis_client)
+
+    pass_service = PassService(redis_client, satellite_id=settings.satellite_id)
+    pass_thread = threading.Thread(target=pass_service.run, daemon=True)
+    pass_thread.start()
 
     fop_service = FOPService(redis_client, settings, repository)
 
