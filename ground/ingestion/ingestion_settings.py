@@ -18,7 +18,10 @@ class IngestionSettings(BaseSettings):
 
     fop_timeout_seconds: int = 5
     fop_max_retries: int = 3
-    fop_queue_key: str = "cmd_queue"
+    fop_queue_emergency: str = "cmd_queue:emergency"
+    fop_queue_high: str = "cmd_queue:high"
+    fop_queue_medium: str = "cmd_queue:medium"
+    fop_queue_low: str = "cmd_queue:low"
 
     postgres_host: str = 'localhost'
     postgres_port: int = 5432
@@ -30,6 +33,15 @@ class IngestionSettings(BaseSettings):
     redis_host: str = 'localhost'
     redis_port: int = 6379
     redis_db: int = 0
+
+    @property
+    def fop_queue_keys(self) -> list[str]:
+        return [
+            self.fop_queue_emergency,
+            self.fop_queue_high,
+            self.fop_queue_medium,
+            self.fop_queue_low
+        ]
 
 
 def get_ingestion_settings() -> IngestionSettings:

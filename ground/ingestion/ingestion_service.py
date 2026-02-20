@@ -10,7 +10,7 @@ from common.xtce_parser import XtceParser
 from ground.ingestion.db_clients import db_session_local, client as redis_client
 from ground.ingestion.ingestion_repository import IngestionRepository
 from ground.ingestion.ingestion_settings import IngestionSettings, get_ingestion_settings
-from ground.models import Telemetry
+from ground.domain.models import Telemetry
 from ground.ingestion.sequence_detector import SequenceGapDetector
 
 

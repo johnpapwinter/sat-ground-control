@@ -1,8 +1,10 @@
+import json
+
 from redis.asyncio import Redis
 from sqlalchemy import select, Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ground.models import Telemetry
+from ground.domain.models import Telemetry, CommandEntry
 
 
 class TelemetryRepository:
@@ -31,4 +33,22 @@ class TelemetryRepository:
         result = await self.db.execute(statement)
         return result.scalars().all()
 
+    async def save_command(self, command: CommandEntry) -> CommandEntry:
+        self.db.add(command)
+        await self.db.commit()
+        await self.db.refresh(command)
+        return command
 
+    async def push_to_queue(self, command: CommandEntry) -> None:
+        queue_key = f"cmd_queue:{command.priority_level.value.lower()}"
+        await self.redis.lpush(queue_key, json.dumps({
+            "command_id": command.command_id,
+            "opcode": command.opcode,
+            "frequency": self._get_frequency(command),
+        }))
+
+    def _get_frequency(self, command: CommandEntry) -> str:
+        return (command.command_payload.get("frequency")
+                if isinstance(command.command_payload, dict)
+                else json.loads(command.command_payload).get("frequency")
+                )

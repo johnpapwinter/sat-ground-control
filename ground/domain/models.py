@@ -1,5 +1,7 @@
-from sqlalchemy import Column, DateTime, Integer, Float
+from sqlalchemy import Column, DateTime, Integer, Float, Enum, BigInteger, JSON
 from sqlalchemy.orm import DeclarativeBase
+
+from ground.domain.enums import CommandPriority, CommandState
 
 
 class Base(DeclarativeBase):
@@ -24,3 +26,16 @@ class PacketGap(Base):
     expected_seq = Column(Integer)
     received_seq = Column(Integer)
     gap_size = Column(Integer)
+
+
+class CommandEntry(Base):
+    __tablename__ = 'command_entries'
+
+    command_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    command_payload = Column(JSON)
+    priority_level = Column(Enum(CommandPriority))
+    state = Column(Enum(CommandState))
+    opcode = Column(Integer)
+    timestamp = Column(DateTime)
+
+

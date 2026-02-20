@@ -7,7 +7,9 @@ import threading
 from redis import Redis
 
 from common.ccsds_parser import create_ccsds_header
-from db_clients import client as redis_client
+from db_clients import client as redis_client, db_session_local
+from ground.domain.enums import CommandState
+from ground.ingestion.ingestion_repository import IngestionRepository
 from ground.ingestion.ingestion_settings import IngestionSettings, get_ingestion_settings
 
 log = logging.getLogger(__name__)
@@ -17,7 +19,7 @@ OPCODE_UNLOCK = 0xFF
 
 
 class FOPService:
-    def __init__(self, redis: Redis, settings: IngestionSettings):
+    def __init__(self, redis: Redis, settings: IngestionSettings, repository: IngestionRepository):
         self.redis = redis
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -32,6 +34,7 @@ class FOPService:
 
         self.clcw_event = threading.Event()
         self.settings = settings
+        self.repository = repository
 
     def listen_clcw(self) -> None:
         pubsub = self.redis.pubsub()
@@ -144,23 +147,29 @@ class FOPService:
         log.info("🚀 FOP Service started, waiting for commands...")
 
         while True:
-            result = self.redis.brpop([self.settings.fop_queue_key], timeout=1)
+            result = self.redis.brpop(self.settings.fop_queue_keys, timeout=1)
             if result is None:
                 continue
 
-            _, raw_command = result
+            queue_name, raw_command = result
             command = json.loads(raw_command)
+            command_id = command.get("command_id")
+
+            log.info(f"Dequeued command {command_id} from {queue_name}")
+            self.repository.update_command_entry(command_id, CommandState.SENT)
             self.current_payload = self.build_payload(command)
 
-            log.info(f"📋 Dequeued command: {command}")
-
             self.send_frame(self.current_payload)
+
+            self.repository.update_command_entry(command_id, CommandState.AWAITING_ACK)
             acked = self.wait_for_ack()
 
             if acked:
                 self.send_seq = (self.send_seq + 1) % 256
+                self.repository.update_command_entry(command_id, CommandState.ACKNOWLEDGED)
                 log.info(f"✅ Command acknowledged, next seq={self.send_seq}")
             else:
+                self.repository.update_command_entry(command_id, CommandState.FAILED)
                 log.error(f"❌ Command seq={self.send_seq} failed after {self.settings.fop_max_retries} retries")
 
     def build_payload(self, command: dict) -> bytes:
@@ -173,8 +182,9 @@ class FOPService:
 
 def main():
     settings = get_ingestion_settings()
+    repository = IngestionRepository(db_session_local, redis_client)
 
-    fop_service = FOPService(redis_client, settings)
+    fop_service = FOPService(redis_client, settings, repository)
 
     clcw_thread = threading.Thread(target=fop_service.listen_clcw, daemon=True)
     clcw_thread.start()

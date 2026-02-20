@@ -6,7 +6,6 @@ from fastapi.params import Depends
 from ground.api.dependencies import inject_telemetry_service
 from ground.api.schemas import CommandPoint, TelemetryPoint, LastStatus
 from ground.api.telemetry_service import TelemetryService
-from ground_commander import send_command
 
 app = FastAPI()
 
@@ -32,10 +31,13 @@ async def get_history(
     return service.get_history(sat_id, metric_id, limit)
 
 @app.post("/satellite/command")
-async def set_sat_command(command: CommandPoint):
+async def set_sat_command(
+        command: CommandPoint,
+        service: TelemetryService = Depends(inject_telemetry_service)
+):
     try:
-        send_command(command.opcode, command.frequency)
-        return {"status": "Command Sent", "opcode": command.opcode, "param": command.frequency}
+        await service.push_command(command)
+        return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

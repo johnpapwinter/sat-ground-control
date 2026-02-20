@@ -1,7 +1,7 @@
 from datetime import timezone, datetime
 
 from ground.ingestion.ingestion_repository import IngestionRepository
-from ground.models import PacketGap
+from ground.domain.models import PacketGap
 
 SEQUENCE_MODULO = 16384
 

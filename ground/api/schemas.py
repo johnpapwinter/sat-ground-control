@@ -1,6 +1,9 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
+
+from ground.domain.enums import CommandPriority
 
 
 class TelemetryPoint(BaseModel):
@@ -13,7 +16,8 @@ class TelemetryPoint(BaseModel):
 
 class CommandPoint(BaseModel):
     opcode: int
-    frequency: float
+    frequency: Optional[float]
+    priority: CommandPriority = CommandPriority.MEDIUM
 
 
 class LastStatus(BaseModel):

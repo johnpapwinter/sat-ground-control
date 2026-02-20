@@ -3,7 +3,8 @@ import json
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from ground.models import Telemetry, PacketGap
+from ground.domain.enums import CommandState
+from ground.domain.models import Telemetry, PacketGap, CommandEntry
 
 
 class IngestionRepository:
@@ -39,4 +40,11 @@ class IngestionRepository:
     def save_clcw(self, clcw: dict) -> None:
         self.redis.publish("clcw:update", json.dumps(clcw))
 
+    def update_command_entry(self, command_id: int, state: CommandState) -> None:
+        if command_id is None:
+            return
+        entry = self.db.get(CommandEntry, command_id)
+        if entry:
+            entry.state = state
+            self.db.commit()
 
