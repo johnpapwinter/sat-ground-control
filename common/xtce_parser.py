@@ -168,7 +168,7 @@ class XtceParser:
 
             calibrated = {}
             for name, raw in zip(names, raw_values):
-                calibrated[name] = self._apply_calibration(names, raw)
+                calibrated[name] = self._apply_calibration(name, raw)
 
             return calibrated
         except struct.error as e:

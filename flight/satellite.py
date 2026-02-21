@@ -44,7 +44,7 @@ def voltage_to_adc(voltage: float) -> int:
     return max(0, min(ADC_RESOLUTION, raw))
 
 def temperature_to_adc(temperature: float) -> int:
-    raw = int(((temperature / TEMP_MIN) / TEMP_RANGE) * ADC_RESOLUTION)
+    raw = int(((temperature - TEMP_MIN) / TEMP_RANGE) * ADC_RESOLUTION)
     return max(0, min(ADC_RESOLUTION, raw))
 
 
