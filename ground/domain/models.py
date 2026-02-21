@@ -33,8 +33,8 @@ class CommandEntry(Base):
 
     command_id = Column(BigInteger, primary_key=True, autoincrement=True)
     command_payload = Column(JSON)
-    priority_level = Column(Enum(CommandPriority))
-    state = Column(Enum(CommandState))
+    priority_level = Column(Enum(CommandPriority, native_enum=False))
+    state = Column(Enum(CommandState, native_enum=False))
     opcode = Column(Integer)
     timestamp = Column(DateTime)
 

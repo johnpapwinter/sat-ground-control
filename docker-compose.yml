@@ -7,8 +7,10 @@ services:
     environment:
       - POSTGRES_PASSWORD=space
       - POSTGRES_DB=space
+      - POSTGRES_USER=postgres
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
 
   redis:
     image: redis:alpine3.22
@@ -23,10 +25,17 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GRAFANA_POSTGRES_HOST=timescaledb:5432
+      - GRAFANA_POSTGRES_DB=space
+      - GRAFANA_POSTGRES_USER=postgres
+      - GRAFANA_POSTGRES_PASSWORD=space
     depends_on:
       - timescaledb
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 
 volumes:
