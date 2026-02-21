@@ -33,6 +33,8 @@ TEMP_MIN = -40.0
 TEMP_MAX = 160.0
 TEMP_RANGE = TEMP_MAX - TEMP_MIN
 
+PACKET_LOSS_RATE = 0.05
+
 farm = Farm()
 
 
@@ -63,6 +65,12 @@ def telemetry_tx():
 
         raw_voltage = voltage_to_adc(voltage)
         raw_temperature = temperature_to_adc(temperature)
+
+        if random.random() < PACKET_LOSS_RATE:
+            log.warning(f"Packet lost (simulated RF dropout) SEQ={SEQ_COUNT}")
+            SEQ_COUNT += 1
+            time.sleep(FREQUENCY)
+            continue
 
         payload = struct.pack("!ff", raw_voltage, raw_temperature)
         header = create_ccsds_header(
