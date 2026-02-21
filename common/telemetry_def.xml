@@ -2,6 +2,15 @@
 <SpaceSystem xmlns="http://www.omg.org/space/xtce" name="SatSim">
 
     <TelemetryParameterTypeSet>
+        <IntegerParameterType name="uint_16_adc" signed="false">
+            <UnitSet/>
+            <IntegerDataEncoding sizeInBits="16" encoding="unsigned">
+                <ByteOrderList>
+                    <ByteOrder byteImportance="mostSignificantByteFirst"/>
+                </ByteOrderList>
+            </IntegerDataEncoding>
+        </IntegerParameterType>
+
         <FloatParameterType name="float_32_t">
             <UnitSet/>
             <FloatDataEncoding sizeInBits="32" encoding="IEEE754_1985">
@@ -13,12 +22,24 @@
     </TelemetryParameterTypeSet>
 
     <TelemetryParameterSet>
-        <TelemetryParameter name="Battery_Voltage" parameterTypeRef="float_32_t">
+        <TelemetryParameter name="Battery_Voltage" parameterTypeRef="uint_16_adc">
             <ShortDescription>Main Bus Voltage</ShortDescription>
+            <ParameterCalibrator>
+                <PolynomialCalibrator>
+                    <Term exponent="0" coefficient="0.0"/>
+                    <Term exponent="1" coefficient="0.00879"/>
+                </PolynomialCalibrator>
+            </ParameterCalibrator>
         </TelemetryParameter>
 
-        <TelemetryParameter name="Solar_Temp" parameterTypeRef="float_32_t">
+        <TelemetryParameter name="Solar_Temp" parameterTypeRef="uint_16_adc">
             <ShortDescription>Solar Panel Temperature</ShortDescription>
+            <ParameterCalibrator>
+                <PolynomialCalibrator>
+                    <Term exponent="0" coefficient="-40.0"/>
+                    <Term exponent="1" coefficient="0.04884"/>
+                </PolynomialCalibrator>
+            </ParameterCalibrator>
         </TelemetryParameter>
     </TelemetryParameterSet>
 

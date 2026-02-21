@@ -1,5 +1,10 @@
+import logging
 import xml.etree.ElementTree as ET
 import struct
+
+
+log = logging.getLogger(__name__)
+
 
 class XtceParser:
     def __init__(self, xml_filename: str):
@@ -27,10 +32,56 @@ class XtceParser:
                 elif bits == 64:
                     return 'd'
 
-        # Future: Add IntegerParameterType logic here
+        # check integer types
+        int_type = root.find(f".//xtce:IntegerParameterType[@name='{type_ref}']", self.namespaces)
+        if int_type is not None:
+            encoding = int_type.find(".//xtce:IntegerDataEncoding", self.namespaces)
+            if encoding is not None:
+                bits = int(encoding.attrib['sizeInBits'])
+                signed = int_type.attrib.get('signed', 'true').lower() == 'true'
+                if bits == 0:
+                    return 'b' if signed else 'B'
+                elif bits == 16:
+                    return 'h' if signed else 'H'
+                elif bits == 32:
+                    return 'i' if signed else 'I'
+
         return None
 
+    def _load_calibrators(self, root):
+        calibrators = {}
+
+        for param in root.findall(".//xtce:TelemetryParameter", self.namespaces):
+            param_name = param.attrib['name']
+
+            poly_cal = param.find(".//xtce:PolynomialCalibrator", self.namespaces)
+            if poly_cal is None:
+                continue
+
+            terms = {}
+            for term in poly_cal.findall("xtce:Term", self.namespaces):
+                exponent = int(term.attrib['exponent'])
+                coefficient = float(term.attrib['coefficient'])
+                terms[exponent] = coefficient
+
+            calibrators[param_name] = terms
+            log.info(f"Loaded calibrator for {param_name}: {terms}")
+
+        return calibrators
+
+    def _apply_calibration(self, param_name, raw_value):
+        if param_name not in self.calibrators:
+            return raw_value
+
+        terms = self.calibrators[param_name]
+        result = 0.0
+        for exponent, coefficient in terms.items():
+            result += coefficient * (raw_value ** exponent)
+        return result
+
     def _load_telemetry(self, root):
+        self.calibrators = self._load_calibrators(root)
+
         for container in root.findall(".//xtce:SequenceContainer", self.namespaces):
             packet_name = container.attrib['name']
 
@@ -54,10 +105,10 @@ class XtceParser:
                     struct_fmt += fmt_char
                     param_names.append(param_name)
                 else:
-                    print(f"⚠️ Warning: Unknown type for param {param_name}")
+                    log.info(f"⚠️ Warning: Unknown type for param {param_name}")
 
 
-            print(f"Loaded XML Definition for APID {apid}: {packet_name} -> {struct_fmt}")
+            log.info(f"Loaded XML Definition for APID {apid}: {packet_name} -> {struct_fmt}")
             self.packet_map[apid] = {
                 "format": struct_fmt,
                 "names": param_names,
@@ -97,7 +148,7 @@ class XtceParser:
                             segments.append({"type": "arg", "name": arg_ref, "fmt": fmt_char})
 
 
-            print(f"Loaded Command: {cmd_name} (APID {apid}) -> args: {segments}")
+            log.info(f"Loaded Command: {cmd_name} (APID {apid}) -> args: {segments}")
             self.command_map[cmd_name] = {
                 "apid": apid,
                 "segments": segments,
@@ -105,7 +156,7 @@ class XtceParser:
 
     def decode(self, apid: int, payload_bytes):
         if apid not in self.packet_map:
-            print(f"Warning: No XML definition for APID {apid}.")
+            log.info(f"Warning: No XML definition for APID {apid}.")
             return None
 
         def_data = self.packet_map[apid]
@@ -113,15 +164,20 @@ class XtceParser:
         names = def_data["names"]
 
         try:
-            values = struct.unpack(fmt, payload_bytes)
-            return dict(zip(names, values))
+            raw_values = struct.unpack(fmt, payload_bytes)
+
+            calibrated = {}
+            for name, raw in zip(names, raw_values):
+                calibrated[name] = self._apply_calibration(names, raw)
+
+            return calibrated
         except struct.error as e:
-            print(f"Decode Error for APID {apid}: {e}")
+            log.info(f"Decode Error for APID {apid}: {e}")
             return None
 
     def encode(self, command_name: str, **kwargs):
         if command_name not in self.command_map:
-            print(f"Error: Unknown command: {command_name}")
+            log.info(f"Error: Unknown command: {command_name}")
             return None
 
         cmd_def = self.command_map[command_name]
@@ -136,14 +192,14 @@ class XtceParser:
             elif segment["type"] == "arg":
                 arg_name = segment["name"]
                 if arg_name not in kwargs:
-                    print(f"Error: Missing argument '{arg_name}' for command '{command_name}'")
+                    log.info(f"Error: Missing argument '{arg_name}' for command '{command_name}'")
                     return None
 
                 val = kwargs[arg_name]
                 try:
                     payload += struct.pack("!" + segment["fmt"], val)
                 except struct.error as e:
-                    print(f"Encode Error for {arg_name}: {e}")
+                    log.info(f"Encode Error for {arg_name}: {e}")
                     return None
 
         return payload

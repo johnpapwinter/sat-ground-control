@@ -27,10 +27,25 @@ RX_HEADER_SIZE = 6
 # special opcode reserved for unlock directive
 OPCODE_UNLOCK = 0xFF
 
+ADC_RESOLUTION = 4095
+VOLTAGE_MAX = 36.0
+TEMP_MIN = -40.0
+TEMP_MAX = 160.0
+TEMP_RANGE = TEMP_MAX - TEMP_MIN
+
 farm = Farm()
 
 
-print(f"🛰️ Satellite {SAT_ID} booting up...")
+log.info(f"🛰️ Satellite {SAT_ID} booting up...")
+
+
+def voltage_to_adc(voltage: float) -> int:
+    raw = int((voltage / VOLTAGE_MAX) * ADC_RESOLUTION)
+    return max(0, min(ADC_RESOLUTION, raw))
+
+def temperature_to_adc(temperature: float) -> int:
+    raw = int(((temperature / TEMP_MIN) / TEMP_RANGE) * ADC_RESOLUTION)
+    return max(0, min(ADC_RESOLUTION, raw))
 
 
 def telemetry_tx():
@@ -46,8 +61,10 @@ def telemetry_tx():
         # solar panel temperature
         temperature = 15.0 + random.uniform(-2, 2)
 
+        raw_voltage = voltage_to_adc(voltage)
+        raw_temperature = temperature_to_adc(temperature)
 
-        payload = struct.pack("!ff", voltage, temperature)
+        payload = struct.pack("!ff", raw_voltage, raw_temperature)
         header = create_ccsds_header(
             apid=APID_TX,
             seq_count=SEQ_COUNT,
