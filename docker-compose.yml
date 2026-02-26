@@ -11,6 +11,11 @@ services:
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:alpine3.22
@@ -18,6 +23,11 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   grafana:
     image: grafana/grafana:12.3
@@ -31,11 +41,54 @@ services:
       - GRAFANA_POSTGRES_USER=postgres
       - GRAFANA_POSTGRES_PASSWORD=space
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  ingestion:
+    profiles:
+      - app
+    build: .
+    command: uv run python -m ground.ingestion.ingestion_service
+    depends_on:
+      redis:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+
+  cop1-fop:
+    profiles:
+      - app
+    build: .
+    command: uv run python -m ground.ingestion.fop_service
+    depends_on:
+      redis:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+
+  api:
+    profiles:
+      - app
+    build: .
+    command: uv run uvicorn ground.api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+
+  satellite:
+    profiles:
+      - app
+    build: .
+    command: uv run python -m flight.satellite
+
 
 
 volumes:
